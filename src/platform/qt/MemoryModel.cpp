@@ -41,6 +41,10 @@ MemoryModel::MemoryModel(QWidget* parent)
 	setFocusPolicy(Qt::StrongFocus);
 	setContextMenuPolicy(Qt::ActionsContextMenu);
 
+	QAction* copyAddress = new QAction(tr("Copy address"), this);
+	connect(copyAddress, &QAction::triggered, this, &MemoryModel::copyAddress);
+	addAction(copyAddress);
+
 	QAction* copy = new QAction(tr("Copy selection"), this);
 	copy->setShortcut(QKeySequence::Copy);
 	connect(copy, &QAction::triggered, this, &MemoryModel::copy);
@@ -171,6 +175,15 @@ void MemoryModel::jumpToAddress(uint32_t address) {
 	verticalScrollBar()->setValue(m_top);
 	m_buffer = 0;
 	m_bufferedNybbles = 0;
+}
+
+void MemoryModel::copyAddress() {
+	QClipboard* clipboard = QApplication::clipboard();
+	if (!clipboard) {
+		return;
+	}
+	static QString arg("%0");
+	clipboard->setText(arg.arg(m_selection.first, 8, 16, QChar('0')).toUpper());
 }
 
 void MemoryModel::copy() {

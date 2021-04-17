@@ -46,6 +46,7 @@ public slots:
 	void loadTBLFromPath(const QString& path);
 	void loadTBL();
 
+	void copyAddress();
 	void copy();
 	void paste();
 	void save();
