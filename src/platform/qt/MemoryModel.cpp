@@ -80,8 +80,8 @@ MemoryModel::MemoryModel(QWidget* parent)
 
 	setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
-	m_margins = QMargins(metrics.width("0FFFFFF0 ") + 3, m_cellHeight + 1, metrics.width(" AAAAAAAAAAAAAAAA") + 3, 0);
-	m_cellSize = QSizeF((viewport()->size().width() - (m_margins.left() + m_margins.right())) / 16.0, m_cellHeight);
+	m_margins = QMargins(metrics.width("0FFFFFF0 ") + 3, m_cellHeight + 1, metrics.width(" AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA") + 3, 0);
+	m_cellSize = QSizeF((viewport()->size().width() - (m_margins.left() + m_margins.right())) / 32.0, m_cellHeight);
 
 	connect(verticalScrollBar(), &QSlider::sliderMoved, [this](int position) {
 		m_top = position;
@@ -119,7 +119,7 @@ void MemoryModel::setRegion(uint32_t base, uint32_t size, const QString& name, i
 	m_regionName = QStaticText(name);
 	m_regionName.prepare(QTransform(), m_font);
 	m_currentBank = segment;
-	verticalScrollBar()->setRange(0, (size >> 4) + 1 - viewport()->size().height() / m_cellHeight);
+	verticalScrollBar()->setRange(0, (size >> 5) + 1 - viewport()->size().height() / m_cellHeight);
 	verticalScrollBar()->setValue(0);
 	viewport()->update();
 }
@@ -166,7 +166,7 @@ void MemoryModel::jumpToAddress(const QString& hex) {
 }
 
 void MemoryModel::jumpToAddress(uint32_t address) {
-	m_top = (address - m_base) / 16;
+	m_top = (address - m_base) / 32;
 	boundsCheck();
 	verticalScrollBar()->setValue(m_top);
 	m_buffer = 0;
@@ -323,8 +323,8 @@ QString MemoryModel::decodeText(const QByteArray& bytes) {
 }
 
 void MemoryModel::resizeEvent(QResizeEvent*) {
-	m_cellSize = QSizeF((viewport()->size().width() - (m_margins.left() + m_margins.right())) / 16.0, m_cellHeight);
-	verticalScrollBar()->setRange(0, (m_size >> 4) + 1 - viewport()->size().height() / m_cellHeight);
+	m_cellSize = QSizeF((viewport()->size().width() - (m_margins.left() + m_margins.right())) / 32.0, m_cellHeight);
+	verticalScrollBar()->setRange(0, (m_size >> 5) + 1 - viewport()->size().height() / m_cellHeight);
 	boundsCheck();
 }
 
@@ -340,27 +340,27 @@ void MemoryModel::paintEvent(QPaintEvent*) {
 	painter.drawText(
 	    QRect(QPoint(viewport()->size().width() - m_margins.right(), 0), QSize(m_margins.right(), m_margins.top())),
 	    Qt::AlignHCenter, m_codec ? tr("TBL") : tr("ISO-8859-1"));
-	for (int x = 0; x < 16; ++x) {
+	for (int x = 0; x < 32; ++x) {
 		painter.drawText(QRectF(QPointF(m_cellSize.width() * x + m_margins.left(), 0), m_cellSize), Qt::AlignHCenter,
 		                 QString::number(x, 16).toUpper());
 	}
 	int height = (viewport()->size().height() - m_cellHeight) / m_cellHeight;
 	for (int y = 0; y < height; ++y) {
 		int yp = m_cellHeight * y + m_margins.top();
-		if ((y + m_top) * 16U >= m_size) {
+		if ((y + m_top) * 32U >= m_size) {
 			break;
 		}
 		QString data;
 		if (m_currentBank >= 0) {
-			data = arg2.arg(m_currentBank, 2, 16, c0).arg((y + m_top) * 16 + m_base, 4, 16, c0).toUpper();
+			data = arg2.arg(m_currentBank, 2, 16, c0).arg((y + m_top) * 32 + m_base, 4, 16, c0).toUpper();
 		} else {
-			data = arg.arg((y + m_top) * 16 + m_base, 8, 16, c0).toUpper();
+			data = arg.arg((y + m_top) * 32 + m_base, 8, 16, c0).toUpper();
 		}
 		painter.drawText(QRectF(QPointF(0, yp), QSizeF(m_margins.left(), m_cellHeight)), Qt::AlignHCenter, data);
 		switch (m_align) {
 		case 2:
-			for (int x = 0; x < 16; x += 2) {
-				uint32_t address = (y + m_top) * 16 + x + m_base;
+			for (int x = 0; x < 32; x += 2) {
+				uint32_t address = (y + m_top) * 32 + x + m_base;
 				if (address >= m_base + m_size) {
 					break;
 				}
@@ -387,8 +387,8 @@ void MemoryModel::paintEvent(QPaintEvent*) {
 			}
 			break;
 		case 4:
-			for (int x = 0; x < 16; x += 4) {
-				uint32_t address = (y + m_top) * 16 + x + m_base;
+			for (int x = 0; x < 32; x += 4) {
+				uint32_t address = (y + m_top) * 32 + x + m_base;
 				if (address >= m_base + m_size) {
 					break;
 				}
@@ -422,8 +422,8 @@ void MemoryModel::paintEvent(QPaintEvent*) {
 			break;
 		case 1:
 		default:
-			for (int x = 0; x < 16; ++x) {
-				uint32_t address = (y + m_top) * 16 + x + m_base;
+			for (int x = 0; x < 32; ++x) {
+				uint32_t address = (y + m_top) * 32 + x + m_base;
 				if (address >= m_base + m_size) {
 					break;
 				}
@@ -446,21 +446,21 @@ void MemoryModel::paintEvent(QPaintEvent*) {
 			break;
 		}
 		painter.setPen(palette.color(QPalette::WindowText));
-		for (int x = 0; x < 16; x += m_align) {
+		for (int x = 0; x < 32; x += m_align) {
 			QByteArray array;
 			uint32_t b;
 			switch (m_align) {
 			case 1:
-				b = m_core->rawRead8(m_core, (y + m_top) * 16 + x + m_base, m_currentBank);
+				b = m_core->rawRead8(m_core, (y + m_top) * 32 + x + m_base, m_currentBank);
 				array.append((char) b);
 				break;
 			case 2:
-				b = m_core->rawRead16(m_core, (y + m_top) * 16 + x + m_base, m_currentBank);
+				b = m_core->rawRead16(m_core, (y + m_top) * 32 + x + m_base, m_currentBank);
 				array.append((char) b);
 				array.append((char) (b >> 8));
 				break;
 			case 4:
-				b = m_core->rawRead32(m_core, (y + m_top) * 16 + x + m_base, m_currentBank);
+				b = m_core->rawRead32(m_core, (y + m_top) * 32 + x + m_base, m_currentBank);
 				array.append((char) b);
 				array.append((char) (b >> 8));
 				array.append((char) (b >> 16));
@@ -482,7 +482,7 @@ void MemoryModel::paintEvent(QPaintEvent*) {
 			}
 			for (int i = 0; i < text.size() && i < m_align; ++i) {
 				const QChar c = text.at(i);
-				const QPointF location(viewport()->size().width() - (16 - x - i) * m_margins.right() / 17.0 - m_letterWidth * 0.5, yp);
+				const QPointF location(viewport()->size().width() - (32 - x - i) * m_margins.right() / 33.0 - m_letterWidth * 0.5, yp);
 				if (c < 256) {
 					painter.drawStaticText(location, m_staticLatin1[c.cell()]);
 				} else {
@@ -514,7 +514,7 @@ void MemoryModel::mousePressEvent(QMouseEvent* event) {
 
 	QPoint position(event->pos() - QPoint(m_margins.left(), m_margins.top()));
 	uint32_t address = int(position.x() / m_cellSize.width()) +
-	                   (int(position.y() / m_cellSize.height()) + m_top) * 16 + m_base;
+	                   (int(position.y() / m_cellSize.height()) + m_top) * 32 + m_base;
 	if (event->button() == Qt::RightButton && isInSelection(address)) {
 		return;
 	}
@@ -542,7 +542,7 @@ void MemoryModel::mouseMoveEvent(QMouseEvent* event) {
 
 	QPoint position(event->pos() - QPoint(m_margins.left(), m_margins.top()));
 	uint32_t address = int(position.x() / m_cellSize.width()) +
-	                   (int(position.y() / m_cellSize.height()) + m_top) * 16 + m_base;
+	                   (int(position.y() / m_cellSize.height()) + m_top) * 32 + m_base;
 	if ((address & ~(m_align - 1)) < m_selectionAnchor) {
 		m_selection = qMakePair(address & ~(m_align - 1), m_selectionAnchor + m_align);
 	} else {
@@ -588,16 +588,16 @@ void MemoryModel::keyPressEvent(QKeyEvent* event) {
 		adjustCursor(m_align, event->modifiers() & Qt::ShiftModifier);
 		return;
 	case Qt::Key_Up:
-		adjustCursor(-16, event->modifiers() & Qt::ShiftModifier);
+		adjustCursor(-32, event->modifiers() & Qt::ShiftModifier);
 		return;
 	case Qt::Key_Down:
-		adjustCursor(16, event->modifiers() & Qt::ShiftModifier);
+		adjustCursor(32, event->modifiers() & Qt::ShiftModifier);
 		return;
 	case Qt::Key_PageUp:
-		adjustCursor(-16 * ((viewport()->size().height() - m_cellHeight) / m_cellHeight), event->modifiers() & Qt::ShiftModifier);
+		adjustCursor(-32 * ((viewport()->size().height() - m_cellHeight) / m_cellHeight), event->modifiers() & Qt::ShiftModifier);
 		return;
 	case Qt::Key_PageDown:
-		adjustCursor(16 * ((viewport()->size().height() - m_cellHeight) / m_cellHeight), event->modifiers() & Qt::ShiftModifier);
+		adjustCursor(32 * ((viewport()->size().height() - m_cellHeight) / m_cellHeight), event->modifiers() & Qt::ShiftModifier);
 		return;
 	default:
 		return;
@@ -629,7 +629,7 @@ void MemoryModel::keyPressEvent(QKeyEvent* event) {
 }
 
 void MemoryModel::boundsCheck() {
-	m_top = clamp(m_top, 0, static_cast<int32_t>(m_size >> 4) + 1 - viewport()->size().height() / m_cellHeight);
+	m_top = clamp(m_top, 0, static_cast<int32_t>(m_size >> 5) + 1 - viewport()->size().height() / m_cellHeight);
 }
 
 bool MemoryModel::isInSelection(uint32_t address) {
@@ -705,7 +705,7 @@ void MemoryModel::adjustCursor(int adjust, bool shift) {
 				cursorPosition = m_selection.first;
 			}
 		}
-		cursorPosition = (cursorPosition - m_base) / 16;
+		cursorPosition = (cursorPosition - m_base) / 32;
 	} else {
 		if (m_selectionAnchor == m_selection.first) {
 			m_selectionAnchor = m_selection.second - m_align;
@@ -721,7 +721,7 @@ void MemoryModel::adjustCursor(int adjust, bool shift) {
 		}
 		m_selection.first = m_selectionAnchor;
 		m_selection.second = m_selection.first + m_align;
-		cursorPosition = (m_selectionAnchor - m_base) / 16;
+		cursorPosition = (m_selectionAnchor - m_base) / 32;
 	}
 	if (cursorPosition < m_top) {
 		m_top = cursorPosition;
