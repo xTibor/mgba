@@ -16,6 +16,7 @@ set(SOURCE_FILES
 	gba.c
 	hle-bios.c
 	input.c
+	inspector.c
 	io.c
 	memory.c
 	overrides.c

@@ -9,6 +9,8 @@
 #include <mgba/internal/arm/isa-inlines.h>
 #include <mgba/internal/arm/isa-thumb.h>
 
+#include <mgba/core/inspector.h>
+
 void ARMSetPrivilegeMode(struct ARMCore* cpu, enum PrivilegeMode mode) {
 	if (mode == cpu->privilegeMode) {
 		// Not switching modes after all
@@ -203,6 +205,10 @@ static inline void ARMStep(struct ARMCore* cpu) {
 	cpu->gprs[ARM_PC] += WORD_SIZE_ARM;
 	LOAD_32(cpu->prefetch[1], cpu->gprs[ARM_PC] & cpu->memory.activeMask, cpu->memory.activeRegion);
 
+	if (cpu->components && cpu->components[CPU_COMPONENT_INSPECTOR_DEVICE]) {
+		mInspectorDeviceProcessEvent((struct mInspectorDevice*) cpu->components[CPU_COMPONENT_INSPECTOR_DEVICE], EVENT_EXECUTE, cpu->gprs[ARM_PC] - WORD_SIZE_ARM * 2, 4);
+	}
+
 	unsigned condition = opcode >> 28;
 	if (condition != 0xE) {
 		unsigned flags = cpu->cpsr.flags >> 4;
@@ -221,6 +227,11 @@ static inline void ThumbStep(struct ARMCore* cpu) {
 	cpu->prefetch[0] = cpu->prefetch[1];
 	cpu->gprs[ARM_PC] += WORD_SIZE_THUMB;
 	LOAD_16(cpu->prefetch[1], cpu->gprs[ARM_PC] & cpu->memory.activeMask, cpu->memory.activeRegion);
+
+	if (cpu->components && cpu->components[CPU_COMPONENT_INSPECTOR_DEVICE]) {
+		mInspectorDeviceProcessEvent((struct mInspectorDevice*) cpu->components[CPU_COMPONENT_INSPECTOR_DEVICE], EVENT_EXECUTE, cpu->gprs[ARM_PC] - WORD_SIZE_THUMB * 2, 2);
+	}
+
 	ThumbInstruction instruction = _thumbTable[opcode >> 6];
 	instruction(cpu, opcode);
 }

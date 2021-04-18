@@ -40,6 +40,7 @@
 #include "LoadSaveState.h"
 #include "LogView.h"
 #include "MapView.h"
+#include "MemoryAccessInspector.h"
 #include "MemorySearch.h"
 #include "MemoryView.h"
 #include "MultiplayerController.h"
@@ -1577,6 +1578,7 @@ void Window::setupMenu(QMenuBar* menubar) {
 		}
 		m_frameView->show();
 	}, "tools");
+	addGameAction(tr("Memory access inspector..."), "memoryAccessInspector", openControllerTView<MemoryAccessInspector>(), "tools");
 
 	addGameAction(tr("View memory..."), "memoryView", openControllerTView<MemoryView>(), "tools");
 	addGameAction(tr("Search memory..."), "memorySearch", openControllerTView<MemorySearch>(), "tools");

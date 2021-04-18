@@ -146,6 +146,7 @@ struct mCore {
 #endif
 
 	struct mCheatDevice* (*cheatDevice)(struct mCore*);
+	struct mInspectorDevice* (*inspectorDevice)(struct mCore*);
 
 	size_t (*savedataClone)(struct mCore*, void** sram);
 	bool (*savedataRestore)(struct mCore*, const void* sram, size_t size, bool writeback);

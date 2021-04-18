@@ -89,6 +89,8 @@ set(SOURCE_FILES
 	LogConfigModel.cpp
 	LogView.cpp
 	MapView.cpp
+	MemoryAccessInspector.cpp
+	MemoryAccessPainter.cpp
 	MemoryDump.cpp
 	MemoryModel.cpp
 	MemorySearch.cpp
@@ -134,6 +136,7 @@ set(UI_FILES
 	LoadSaveState.ui
 	LogView.ui
 	MapView.ui
+	MemoryAccessInspector.ui
 	MemoryDump.ui
 	MemorySearch.ui
 	MemoryView.ui

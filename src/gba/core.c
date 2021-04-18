@@ -11,6 +11,7 @@
 #include <mgba/internal/debugger/symbols.h>
 #include <mgba/internal/gba/cheats.h>
 #include <mgba/internal/gba/gba.h>
+#include <mgba/internal/gba/inspector.h>
 #include <mgba/internal/gba/io.h>
 #include <mgba/internal/gba/extra/audio-mixer.h>
 #include <mgba/internal/gba/extra/cli.h>
@@ -151,6 +152,7 @@ struct GBACore {
 	const struct Configuration* overrides;
 	struct mDebuggerPlatform* debuggerPlatform;
 	struct mCheatDevice* cheatDevice;
+	struct mInspectorDevice* inspectorDevice;
 	struct GBAAudioMixer* audioMixer;
 };
 
@@ -173,6 +175,7 @@ static bool _GBACoreInit(struct mCore* core) {
 	gbacore->overrides = NULL;
 	gbacore->debuggerPlatform = NULL;
 	gbacore->cheatDevice = NULL;
+	gbacore->inspectorDevice = NULL;
 #ifndef MINIMAL_CORE
 	gbacore->logContext = NULL;
 #endif
@@ -211,7 +214,7 @@ static bool _GBACoreInit(struct mCore* core) {
 #if !defined(MINIMAL_CORE) || MINIMAL_CORE < 2
 	mDirectorySetInit(&core->dirs);
 #endif
-	
+
 	return true;
 }
 
@@ -233,6 +236,9 @@ static void _GBACoreDeinit(struct mCore* core) {
 	free(gbacore->debuggerPlatform);
 	if (gbacore->cheatDevice) {
 		mCheatDeviceDestroy(gbacore->cheatDevice);
+	}
+	if (gbacore->inspectorDevice) {
+		mInspectorDeviceDestroy(gbacore->inspectorDevice);
 	}
 	free(gbacore->audioMixer);
 	mCoreConfigFreeOpts(&core->opts);
@@ -544,6 +550,14 @@ static void _GBACoreUnloadROM(struct mCore* core) {
 		mCheatDeviceDestroy(gbacore->cheatDevice);
 		gbacore->cheatDevice = NULL;
 	}
+
+	if (gbacore->inspectorDevice) {
+		ARMHotplugDetach(cpu, CPU_COMPONENT_INSPECTOR_DEVICE);
+		cpu->components[CPU_COMPONENT_INSPECTOR_DEVICE] = NULL;
+		mInspectorDeviceDestroy(gbacore->inspectorDevice);
+		gbacore->inspectorDevice = NULL;
+	}
+
 	return GBAUnloadROM(core->board);
 }
 
@@ -988,10 +1002,21 @@ static struct mCheatDevice* _GBACoreCheatDevice(struct mCore* core) {
 	if (!gbacore->cheatDevice) {
 		gbacore->cheatDevice = GBACheatDeviceCreate();
 		((struct ARMCore*) core->cpu)->components[CPU_COMPONENT_CHEAT_DEVICE] = &gbacore->cheatDevice->d;
-		ARMHotplugAttach(core->cpu, CPU_COMPONENT_CHEAT_DEVICE);
 		gbacore->cheatDevice->p = core;
+		ARMHotplugAttach(core->cpu, CPU_COMPONENT_CHEAT_DEVICE);
 	}
 	return gbacore->cheatDevice;
+}
+
+static struct mInspectorDevice* _GBACoreInspectorDevice(struct mCore* core) {
+	struct GBACore* gbacore = (struct GBACore*) core;
+	if (!gbacore->inspectorDevice) {
+		gbacore->inspectorDevice = GBAInspectorDeviceCreate();
+		((struct ARMCore*) core->cpu)->components[CPU_COMPONENT_INSPECTOR_DEVICE] = &gbacore->inspectorDevice->d;
+		gbacore->inspectorDevice->p = core;
+		ARMHotplugAttach(core->cpu, CPU_COMPONENT_INSPECTOR_DEVICE);
+	}
+	return gbacore->inspectorDevice;
 }
 
 static size_t _GBACoreSavedataClone(struct mCore* core, void** sram) {
@@ -1225,6 +1250,7 @@ struct mCore* GBACoreCreate(void) {
 	core->lookupIdentifier = _GBACoreLookupIdentifier;
 #endif
 	core->cheatDevice = _GBACoreCheatDevice;
+	core->inspectorDevice = _GBACoreInspectorDevice;
 	core->savedataClone = _GBACoreSavedataClone;
 	core->savedataRestore = _GBACoreSavedataRestore;
 	core->listVideoLayers = _GBACoreListVideoLayers;

@@ -11,6 +11,7 @@
 #include <mgba/internal/gb/debugger/debugger.h>
 #include <mgba/internal/gb/debugger/symbols.h>
 #include <mgba/internal/gb/extra/cli.h>
+#include <mgba/internal/gb/inspector.h>
 #include <mgba/internal/gb/io.h>
 #include <mgba/internal/gb/gb.h>
 #include <mgba/internal/gb/mbc.h>
@@ -75,6 +76,7 @@ struct GBCore {
 	const struct Configuration* overrides;
 	struct mDebuggerPlatform* debuggerPlatform;
 	struct mCheatDevice* cheatDevice;
+	struct mInspectorDevice* inspectorDevice;
 	struct mCoreMemoryBlock memoryBlocks[8];
 };
 
@@ -94,6 +96,7 @@ static bool _GBCoreInit(struct mCore* core) {
 	gbcore->overrides = NULL;
 	gbcore->debuggerPlatform = NULL;
 	gbcore->cheatDevice = NULL;
+	gbcore->inspectorDevice = NULL;
 #ifndef MINIMAL_CORE
 	gbcore->logContext = NULL;
 #endif
@@ -122,7 +125,7 @@ static bool _GBCoreInit(struct mCore* core) {
 #if !defined(MINIMAL_CORE) || MINIMAL_CORE < 2
 	mDirectorySetInit(&core->dirs);
 #endif
-	
+
 	return true;
 }
 
@@ -144,6 +147,9 @@ static void _GBCoreDeinit(struct mCore* core) {
 	free(gbcore->debuggerPlatform);
 	if (gbcore->cheatDevice) {
 		mCheatDeviceDestroy(gbcore->cheatDevice);
+	}
+	if (gbcore->inspectorDevice) {
+		mInspectorDeviceDestroy(gbcore->inspectorDevice);
 	}
 	mCoreConfigFreeOpts(&core->opts);
 	free(core);
@@ -410,12 +416,21 @@ static bool _GBCoreLoadPatch(struct mCore* core, struct VFile* vf) {
 static void _GBCoreUnloadROM(struct mCore* core) {
 	struct GBCore* gbcore = (struct GBCore*) core;
 	struct SM83Core* cpu = core->cpu;
+
 	if (gbcore->cheatDevice) {
 		SM83HotplugDetach(cpu, CPU_COMPONENT_CHEAT_DEVICE);
 		cpu->components[CPU_COMPONENT_CHEAT_DEVICE] = NULL;
 		mCheatDeviceDestroy(gbcore->cheatDevice);
 		gbcore->cheatDevice = NULL;
 	}
+
+	if (gbcore->inspectorDevice) {
+		SM83HotplugDetach(cpu, CPU_COMPONENT_INSPECTOR_DEVICE);
+		cpu->components[CPU_COMPONENT_INSPECTOR_DEVICE] = NULL;
+		mInspectorDeviceDestroy(gbcore->inspectorDevice);
+		gbcore->inspectorDevice = NULL;
+	}
+
 	return GBUnloadROM(core->board);
 }
 
@@ -865,10 +880,21 @@ static struct mCheatDevice* _GBCoreCheatDevice(struct mCore* core) {
 	if (!gbcore->cheatDevice) {
 		gbcore->cheatDevice = GBCheatDeviceCreate();
 		((struct SM83Core*) core->cpu)->components[CPU_COMPONENT_CHEAT_DEVICE] = &gbcore->cheatDevice->d;
-		SM83HotplugAttach(core->cpu, CPU_COMPONENT_CHEAT_DEVICE);
 		gbcore->cheatDevice->p = core;
+		SM83HotplugAttach(core->cpu, CPU_COMPONENT_CHEAT_DEVICE);
 	}
 	return gbcore->cheatDevice;
+}
+
+static struct mInspectorDevice* _GBCoreInspectorDevice(struct mCore* core) {
+	struct GBCore* gbcore = (struct GBCore*) core;
+	if (!gbcore->inspectorDevice) {
+		gbcore->inspectorDevice = GBInspectorDeviceCreate();
+		((struct SM83Core*) core->cpu)->components[CPU_COMPONENT_INSPECTOR_DEVICE] = &gbcore->inspectorDevice->d;
+		gbcore->inspectorDevice->p = core;
+		SM83HotplugAttach(core->cpu, CPU_COMPONENT_INSPECTOR_DEVICE);
+	}
+	return gbcore->inspectorDevice;
 }
 
 static size_t _GBCoreSavedataClone(struct mCore* core, void** sram) {
@@ -1076,6 +1102,7 @@ struct mCore* GBCoreCreate(void) {
 	core->lookupIdentifier = _GBCoreLookupIdentifier;
 #endif
 	core->cheatDevice = _GBCoreCheatDevice;
+	core->inspectorDevice = _GBCoreInspectorDevice;
 	core->savedataClone = _GBCoreSavedataClone;
 	core->savedataRestore = _GBCoreSavedataRestore;
 	core->listVideoLayers = _GBCoreListVideoLayers;

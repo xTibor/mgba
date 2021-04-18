@@ -5,6 +5,7 @@ set(SOURCE_FILES
 	core.c
 	gb.c
 	input.c
+	inspector.c
 	io.c
 	mbc.c
 	memory.c

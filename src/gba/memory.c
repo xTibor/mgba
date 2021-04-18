@@ -9,6 +9,7 @@
 #include <mgba/internal/arm/macros.h>
 #include <mgba/internal/gba/gba.h>
 #include <mgba/internal/gba/dma.h>
+#include <mgba/internal/gba/inspector.h>
 #include <mgba/internal/gba/io.h>
 #include <mgba/internal/gba/serialize.h>
 #include "gba/hle-bios.h"
@@ -354,6 +355,11 @@ static void GBASetActiveRegion(struct ARMCore* cpu, uint32_t address) {
 	cpu->memory.activeMask &= -(cpu->cpsr.t ? WORD_SIZE_THUMB : WORD_SIZE_ARM);
 }
 
+#define INSPECTOR_EVENT(eventKind, address, size) \
+	if (cpu->components && cpu->components[CPU_COMPONENT_INSPECTOR_DEVICE]) { \
+		mInspectorDeviceProcessEvent((struct mInspectorDevice*) cpu->components[CPU_COMPONENT_INSPECTOR_DEVICE], eventKind, address, size); \
+	}
+
 #define LOAD_BAD \
 	value = GBALoadBad(cpu);
 
@@ -453,6 +459,8 @@ uint32_t GBALoadBad(struct ARMCore* cpu) {
 }
 
 uint32_t GBALoad32(struct ARMCore* cpu, uint32_t address, int* cycleCounter) {
+	INSPECTOR_EVENT(EVENT_READ, address, 4);
+
 	struct GBA* gba = (struct GBA*) cpu->master;
 	struct GBAMemory* memory = &gba->memory;
 	uint32_t value = 0;
@@ -512,6 +520,8 @@ uint32_t GBALoad32(struct ARMCore* cpu, uint32_t address, int* cycleCounter) {
 }
 
 uint32_t GBALoad16(struct ARMCore* cpu, uint32_t address, int* cycleCounter) {
+	INSPECTOR_EVENT(EVENT_READ, address, 2);
+
 	struct GBA* gba = (struct GBA*) cpu->master;
 	struct GBAMemory* memory = &gba->memory;
 	uint32_t value = 0;
@@ -631,6 +641,8 @@ uint32_t GBALoad16(struct ARMCore* cpu, uint32_t address, int* cycleCounter) {
 }
 
 uint32_t GBALoad8(struct ARMCore* cpu, uint32_t address, int* cycleCounter) {
+	INSPECTOR_EVENT(EVENT_READ, address, 1);
+
 	struct GBA* gba = (struct GBA*) cpu->master;
 	struct GBAMemory* memory = &gba->memory;
 	uint32_t value = 0;
@@ -813,6 +825,8 @@ uint32_t GBALoad8(struct ARMCore* cpu, uint32_t address, int* cycleCounter) {
 	mLOG(GBA_MEM, GAME_ERROR, "Bad memory Store32: 0x%08X", address);
 
 void GBAStore32(struct ARMCore* cpu, uint32_t address, int32_t value, int* cycleCounter) {
+	INSPECTOR_EVENT(EVENT_WRITE, address, 4);
+
 	struct GBA* gba = (struct GBA*) cpu->master;
 	struct GBAMemory* memory = &gba->memory;
 	int wait = 0;
@@ -865,6 +879,8 @@ void GBAStore32(struct ARMCore* cpu, uint32_t address, int32_t value, int* cycle
 }
 
 void GBAStore16(struct ARMCore* cpu, uint32_t address, int16_t value, int* cycleCounter) {
+	INSPECTOR_EVENT(EVENT_WRITE, address, 2);
+
 	struct GBA* gba = (struct GBA*) cpu->master;
 	struct GBAMemory* memory = &gba->memory;
 	int wait = 0;
@@ -1007,6 +1023,8 @@ void GBAStore16(struct ARMCore* cpu, uint32_t address, int16_t value, int* cycle
 }
 
 void GBAStore8(struct ARMCore* cpu, uint32_t address, int8_t value, int* cycleCounter) {
+	INSPECTOR_EVENT(EVENT_WRITE, address, 1);
+
 	struct GBA* gba = (struct GBA*) cpu->master;
 	struct GBAMemory* memory = &gba->memory;
 	int wait = 0;
@@ -1399,6 +1417,7 @@ void GBAPatch8(struct ARMCore* cpu, uint32_t address, int8_t value, int8_t* old)
 #define LDM_LOOP(LDM) \
 	if (UNLIKELY(!mask)) { \
 		LDM; \
+		INSPECTOR_EVENT(EVENT_READ, address, 4); \
 		cpu->gprs[ARM_PC] = value; \
 		wait += 16; \
 		address += 64; \
@@ -1406,24 +1425,28 @@ void GBAPatch8(struct ARMCore* cpu, uint32_t address, int8_t value, int8_t* old)
 	for (i = 0; i < 16; i += 4) { \
 		if (UNLIKELY(mask & (1 << i))) { \
 			LDM; \
+			INSPECTOR_EVENT(EVENT_READ, address, 4); \
 			cpu->gprs[i] = value; \
 			++wait; \
 			address += 4; \
 		} \
 		if (UNLIKELY(mask & (2 << i))) { \
 			LDM; \
+			INSPECTOR_EVENT(EVENT_READ, address, 4); \
 			cpu->gprs[i + 1] = value; \
 			++wait; \
 			address += 4; \
 		} \
 		if (UNLIKELY(mask & (4 << i))) { \
 			LDM; \
+			INSPECTOR_EVENT(EVENT_READ, address, 4); \
 			cpu->gprs[i + 2] = value; \
 			++wait; \
 			address += 4; \
 		} \
 		if (UNLIKELY(mask & (8 << i))) { \
 			LDM; \
+			INSPECTOR_EVENT(EVENT_READ, address, 4); \
 			cpu->gprs[i + 3] = value; \
 			++wait; \
 			address += 4; \
@@ -1518,6 +1541,7 @@ uint32_t GBALoadMultiple(struct ARMCore* cpu, uint32_t address, int mask, enum L
 	if (UNLIKELY(!mask)) { \
 		value = cpu->gprs[ARM_PC] + (cpu->executionMode == MODE_ARM ? WORD_SIZE_ARM : WORD_SIZE_THUMB); \
 		STM; \
+		INSPECTOR_EVENT(EVENT_WRITE, address, 4); \
 		wait += 16; \
 		address += 64; \
 	} \
@@ -1525,18 +1549,21 @@ uint32_t GBALoadMultiple(struct ARMCore* cpu, uint32_t address, int mask, enum L
 		if (UNLIKELY(mask & (1 << i))) { \
 			value = cpu->gprs[i]; \
 			STM; \
+			INSPECTOR_EVENT(EVENT_WRITE, address, 4); \
 			++wait; \
 			address += 4; \
 		} \
 		if (UNLIKELY(mask & (2 << i))) { \
 			value = cpu->gprs[i + 1]; \
 			STM; \
+			INSPECTOR_EVENT(EVENT_WRITE, address, 4); \
 			++wait; \
 			address += 4; \
 		} \
 		if (UNLIKELY(mask & (4 << i))) { \
 			value = cpu->gprs[i + 2]; \
 			STM; \
+			INSPECTOR_EVENT(EVENT_WRITE, address, 4); \
 			++wait; \
 			address += 4; \
 		} \
@@ -1546,6 +1573,7 @@ uint32_t GBALoadMultiple(struct ARMCore* cpu, uint32_t address, int mask, enum L
 				value += WORD_SIZE_ARM; \
 			} \
 			STM; \
+			INSPECTOR_EVENT(EVENT_WRITE, address, 4); \
 			++wait; \
 			address += 4; \
 		} \

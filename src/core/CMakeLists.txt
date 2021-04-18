@@ -7,6 +7,7 @@ set(SOURCE_FILES
 	core.c
 	directories.c
 	input.c
+	inspector.c
 	interface.c
 	library.c
 	lockstep.c
