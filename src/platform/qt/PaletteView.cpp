@@ -135,7 +135,7 @@ void PaletteView::exportPalette(int start, int length) {
 
 	CoreController::Interrupter interrupter(m_controller);
 	QString filename = GBAApp::app()->getSaveFileName(this, tr("Export palette"),
-	                                                  tr("Windows PAL (*.pal);;Adobe Color Table (*.act)"));
+	                                                  tr("Windows PAL (*.pal);;Adobe Color Table (*.act);;GIMP Palette (*.gpl)"));
 	VFile* vf = VFileDevice::open(filename, O_WRONLY | O_CREAT | O_TRUNC);
 	if (!vf) {
 		LOG(QT, ERROR) << tr("Failed to open output palette file: %1").arg(filename);
@@ -145,6 +145,8 @@ void PaletteView::exportPalette(int start, int length) {
 		exportPaletteRIFF(vf, length, &static_cast<GBA*>(m_controller->thread()->core->board)->video.palette[start]);
 	} else if (filename.endsWith(".act", Qt::CaseInsensitive)) {
 		exportPaletteACT(vf, length, &static_cast<GBA*>(m_controller->thread()->core->board)->video.palette[start]);
+	} else if (filename.endsWith(".gpl", Qt::CaseInsensitive)) {
+		exportPaletteGPL(vf, length, &static_cast<GBA*>(m_controller->thread()->core->board)->video.palette[start]);
 	}
 	vf->close(vf);
 }
