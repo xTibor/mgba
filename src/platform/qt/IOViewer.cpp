@@ -1650,6 +1650,14 @@ IOViewer::IOViewer(std::shared_ptr<CoreController> controller, QWidget* parent)
 	selectRegister(0);
 
 	connect(controller.get(), &CoreController::stopping, this, &QWidget::close);
+
+	connect(m_ui.regAutoUpdate, &QAbstractButton::toggled, [this, controller](bool selected) {
+		if (selected) {
+			connect(controller.get(), &CoreController::frameAvailable, this, &IOViewer::updateRegister);
+		} else {
+			disconnect(controller.get(), &CoreController::frameAvailable, this, &IOViewer::updateRegister);
+		}
+	});
 }
 
 void IOViewer::updateRegister() {
