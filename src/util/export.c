@@ -79,3 +79,36 @@ bool exportPaletteACT(struct VFile* vf, size_t entries, const uint16_t* colors) 
 	}
 	return true;
 }
+
+bool exportPaletteGPL(struct VFile* vf, size_t entries, const uint16_t* colors) {
+	if (vf->write(vf, "GIMP Palette\n", 13) < 13) {
+		return false;
+	}
+	if (vf->write(vf, "Name: Untitled\n", 15) < 15) {
+		return false;
+	}
+	if (vf->write(vf, "Columns: 16\n", 12) < 12) {
+		return false;
+	}
+
+	size_t i;
+	for (i = 0; i < entries; ++i) {
+		uint8_t block[3] = {
+			M_R8(colors[i]),
+			M_G8(colors[i]),
+			M_B8(colors[i]),
+		};
+
+		char line[32];
+		size_t len = snprintf(line, sizeof(line), "%3d %3d %3d Untitled\n", block[0], block[1], block[2]);
+		if (len >= sizeof(line)) {
+			return false;
+		}
+
+		if (vf->write(vf, line, len) < (ssize_t) len) {
+			return false;
+		}
+	}
+
+	return true;
+}
